@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --pama-navy: #0a2a66;
+  --pama-blue: #294483;
+  --pama-yellow: #ffc928;
+  --pama-gold: #f2b318;
+  --white: #ffffff;
+  --soft-gray: #f3f5f7;
+  --medium-gray: #a7afbd;
+  --charcoal: #2d3138;
+  --light-blue-gray: #d9e2f0;
+  --alert-red: #d64545;
+  --warning-orange: #ef8f2f;
+  --success-green: #25a56a;
+  --info-blue: #2d85c7;
+  --deep-blue: #153a8a;
+  color: var(--charcoal);
+  background: #e8edf3;
+  font-family: Inter, 'Segoe UI', Arial, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 1024px;
+  height: 100%;
+  min-height: 640px;
+  margin: 0;
+  overflow: hidden;
+}
+body {
+  background: #e8edf3;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button {
+  touch-action: manipulation;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--pama-yellow);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .panel {
+    @apply border border-slate-300 bg-white;
+  }
+  .panel-heading {
+    @apply flex h-9 items-center justify-between border-b border-slate-300 bg-slate-100 px-3 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-600;
+  }
+  .control-btn {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 active:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .control-btn-active {
+    @apply border-pama-blue bg-pama-blue text-white hover:bg-pama-navy;
+  }
+  .field-label {
+    @apply mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500;
+  }
+  .field-input {
+    @apply h-10 w-full border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none focus:border-pama-blue;
+  }
+  .status-dot {
+    @apply inline-block h-2.5 w-2.5 rounded-full border border-white/30;
+  }
+}
+
+.three-canvas {
+  background: #b9c4c7;
+}
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #a7afbd #eef1f4;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
