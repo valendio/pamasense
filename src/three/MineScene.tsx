@@ -1,4 +1,4 @@
-import { Grid, Html, Line } from '@react-three/drei';
+import { Grid, Line } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
 import { SITE_ORIGIN } from '../config/site';
@@ -106,16 +106,6 @@ function SceneContent({
         <planeGeometry args={[32, 32]} />
         <meshBasicMaterial color="#ffc928" transparent opacity={0.16} depthWrite={false} />
       </mesh>
-      <Html
-        position={[bucketLocal[0], bucketLocal[1] + 2.2, bucketLocal[2]]}
-        center
-        distanceFactor={80}
-        zIndexRange={[20, 0]}
-      >
-        <div className="whitespace-nowrap border border-slate-700 bg-white/95 px-2 py-1 font-mono text-[11px] font-bold text-slate-800">
-          TOOTH {guidance.bucketTip[1].toFixed(2)} m
-        </div>
-      </Html>
       <CameraController telemetry={telemetry} guidance={guidance} />
     </>
   );
