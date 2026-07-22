@@ -47,7 +47,7 @@ Calibration steps and transform conventions are in [CALIBRATION.md](./CALIBRATIO
 
 - Three.js mountain mine with six production benches, four surrounding ridges, a graded haul road, real 5 m plan contours, separate design/actual surfaces, and a vertex deviation heatmap
 - Keyboard and touchscreen tracked-machine driving with deterministic WASD kinematics
-- Primitive, hierarchical excavator with boom, arm, bucket, two GNSS antennas, and bucket tooth
+- High-detail procedural Komatsu PC1250 with articulated boom/arm, glazed cabin, rounded counterweight, track shoes and rollers, hydraulic cylinders, dual GNSS antennas, and an open bucket with cutting edge and five teeth
 - Matrix-chain forward kinematics using configurable geometry
 - Barycentric TIN elevation interpolation (not nearest-point lookup)
 - Grade tolerance and hysteresis with mandatory sensor-quality gating
