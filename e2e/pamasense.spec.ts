@@ -83,4 +83,27 @@ test.describe('PAMASense operational workflow', () => {
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe('pamasense-operational-log.csv');
   });
+
+  test('11. WASD controls drive and steer the excavator', async ({ page }) => {
+    const machinePosition = page.getByTestId('machine-position');
+    const machineHeading = page.getByTestId('machine-heading');
+    const beforePosition = (await machinePosition.textContent()) ?? '';
+    const beforeHeading = Number(await machineHeading.textContent());
+
+    await page.keyboard.down('w');
+    await expect(page.getByRole('button', { name: 'Forward (W)' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await page.waitForTimeout(650);
+    await page.keyboard.up('w');
+    await expect(machinePosition).not.toHaveText(beforePosition);
+
+    await page.keyboard.down('d');
+    await page.waitForTimeout(350);
+    await page.keyboard.up('d');
+    await expect
+      .poll(async () => Number(await machineHeading.textContent()))
+      .toBeGreaterThan(beforeHeading);
+  });
 });

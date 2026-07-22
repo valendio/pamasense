@@ -1,22 +1,25 @@
 import { Line } from '@react-three/drei';
-
-const workPolygon: [number, number, number][] = [
-  [-72, 120.5, -70],
-  [94, 120.8, -66],
-  [112, 120.8, 52],
-  [-80, 120.4, 66],
-  [-72, 120.5, -70],
-];
-
-const noGoPolygon: [number, number, number][] = [
-  [70, 121.5, -42],
-  [104, 121.5, -40],
-  [104, 121.5, -8],
-  [72, 121.5, -10],
-  [70, 121.5, -42],
-];
+import { useMemo } from 'react';
+import { NO_GO_POLYGON_XZ, WORK_POLYGON_XZ } from '../config/mineGeometry';
+import { getDesignElevation } from '../features/mine-design/elevationQuery';
+import { useDesignStore } from '../stores/designStore';
 
 export function WorkBoundary() {
+  const design = useDesignStore((state) => state.design);
+  const workPolygon = useMemo(() => {
+    const points = WORK_POLYGON_XZ.map(
+      ([x, z]) => [x, (getDesignElevation(design, x, z) ?? 120) + 0.42, z] as const,
+    );
+    return [...points, points[0]];
+  }, [design]);
+  const noGoPolygon = useMemo(() => {
+    const points = NO_GO_POLYGON_XZ.map(
+      ([x, z]) => [x, (getDesignElevation(design, x, z) ?? 120) + 0.48, z] as const,
+    );
+    return [...points, points[0]];
+  }, [design]);
+  const noGoCenterY = getDesignElevation(design, 92, -20) ?? 120;
+
   return (
     <group>
       <Line
@@ -28,8 +31,8 @@ export function WorkBoundary() {
         gapSize={1.5}
       />
       <Line points={noGoPolygon} color="#d64545" lineWidth={3} />
-      <mesh position={[87, 121.05, -25]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[34, 32]} />
+      <mesh position={[92, noGoCenterY + 0.32, -20]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[40, 40]} />
         <meshBasicMaterial color="#d64545" transparent opacity={0.13} depthWrite={false} />
       </mesh>
     </group>

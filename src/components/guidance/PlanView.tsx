@@ -1,7 +1,10 @@
 import { useMemo, useState, type MouseEvent } from 'react';
 import { Crosshair } from 'lucide-react';
+import { NO_GO_POLYGON_XZ, WORK_POLYGON_XZ } from '../../config/mineGeometry';
 import { SITE_ORIGIN } from '../../config/site';
 import type { GuidanceResult } from '../../features/guidance/guidanceTypes';
+import { createTerrainContours } from '../../features/mine-design/contours';
+import { demoHaulRoadCenterZ } from '../../features/mine-design/demoTerrain';
 import { getDesignElevation } from '../../features/mine-design/elevationQuery';
 import type { MachineTelemetry } from '../../features/telemetry/telemetrySchema';
 import { useDesignStore } from '../../stores/designStore';
@@ -17,6 +20,8 @@ const VIEW_WIDTH = 900;
 const VIEW_HEIGHT = 600;
 const toSvgX = (x: number) => ((x + 300) / 600) * VIEW_WIDTH;
 const toSvgY = (z: number) => VIEW_HEIGHT - ((z + 250) / 500) * VIEW_HEIGHT;
+const polygonPoints = (points: readonly (readonly [number, number])[]) =>
+  points.map(([x, z]) => `${toSvgX(x)},${toSvgY(z)}`).join(' ');
 
 export function PlanView({
   telemetry,
@@ -31,6 +36,29 @@ export function PlanView({
   const actualAsDesign = useMemo(
     () => (design ? { ...design, vertices: actual.vertices, triangles: actual.triangles } : null),
     [actual.triangles, actual.vertices, design],
+  );
+  const contours = useMemo(
+    () =>
+      createTerrainContours(design, 5).map((contour) => ({
+        ...contour,
+        path: contour.segments
+          .map(
+            ([start, end]) =>
+              `M ${toSvgX(start[0]).toFixed(1)} ${toSvgY(start[1]).toFixed(1)} L ${toSvgX(end[0]).toFixed(1)} ${toSvgY(end[1]).toFixed(1)}`,
+          )
+          .join(' '),
+      })),
+    [design],
+  );
+  const roadPath = useMemo(
+    () =>
+      Array.from({ length: 61 }, (_, index) => -300 + index * 10)
+        .map((x, index) => {
+          const command = index === 0 ? 'M' : 'L';
+          return `${command} ${toSvgX(x).toFixed(1)} ${toSvgY(demoHaulRoadCenterZ(x)).toFixed(1)}`;
+        })
+        .join(' '),
+    [],
   );
   const machineX = telemetry.gnss.east - SITE_ORIGIN.east;
   const machineZ = telemetry.gnss.north - SITE_ORIGIN.north;
@@ -59,15 +87,15 @@ export function PlanView({
         className="h-full w-full"
         onClick={inspect}
         role="img"
-        aria-label="Plan view mine map"
+        aria-label="Plan view mine contour map"
       >
         <defs>
           <pattern id="smallGrid" width="30" height="30" patternUnits="userSpaceOnUse">
-            <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#c7cec9" strokeWidth="0.7" />
+            <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#d1d6d2" strokeWidth="0.6" />
           </pattern>
           <pattern id="grid" width="150" height="150" patternUnits="userSpaceOnUse">
             <rect width="150" height="150" fill="url(#smallGrid)" />
-            <path d="M 150 0 L 0 0 0 150" fill="none" stroke="#91a09b" strokeWidth="1.2" />
+            <path d="M 150 0 L 0 0 0 150" fill="none" stroke="#8b9993" strokeWidth="1.15" />
           </pattern>
           <marker
             id="arrow"
@@ -81,49 +109,57 @@ export function PlanView({
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#0a2a66" />
           </marker>
         </defs>
+        <rect width={VIEW_WIDTH} height={VIEW_HEIGHT} fill="#f2f2ed" />
         <rect width={VIEW_WIDTH} height={VIEW_HEIGHT} fill="url(#grid)" />
-        {[95, 135, 175, 215, 255, 300].map((radius, index) => (
-          <ellipse
-            key={radius}
-            cx="450"
-            cy="300"
-            rx={radius * 1.28}
-            ry={radius * 0.88}
+        {contours.map((contour) => (
+          <path
+            key={contour.elevation}
+            d={contour.path}
             fill="none"
-            stroke={index % 2 ? '#7d8f75' : '#687c64'}
-            strokeWidth={index % 2 ? 1.1 : 1.8}
-            strokeDasharray={index % 2 ? '5 4' : undefined}
+            stroke={contour.elevation % 10 === 0 ? '#52605d' : '#7f8985'}
+            strokeWidth={contour.elevation % 10 === 0 ? 1.65 : 0.8}
+            opacity={contour.elevation % 10 === 0 ? 0.95 : 0.76}
           />
         ))}
-        <path
-          d="M 48 195 C 220 215, 315 240, 445 233 S 690 205, 875 185"
-          fill="none"
-          stroke="#d1b46f"
-          strokeWidth="33"
-        />
-        <path
-          d="M 48 195 C 220 215, 315 240, 445 233 S 690 205, 875 185"
-          fill="none"
-          stroke="#f0dcaa"
-          strokeWidth="25"
-          strokeDasharray="18 8"
-        />
+        {contours
+          .filter((contour) => contour.elevation % 20 === 0 && contour.segments.length > 0)
+          .map((contour) => {
+            const point = contour.segments[Math.floor(contour.segments.length * 0.32)]?.[0];
+            return point ? (
+              <text
+                key={`label-${contour.elevation}`}
+                x={toSvgX(point[0])}
+                y={toSvgY(point[1])}
+                fill="#404a47"
+                fontSize="9"
+                fontWeight="800"
+                paintOrder="stroke"
+                stroke="#f2f2ed"
+                strokeWidth="3"
+              >
+                {contour.elevation}
+              </text>
+            ) : null;
+          })}
+        <path d={roadPath} fill="none" stroke="#756b55" strokeWidth="30" opacity="0.92" />
+        <path d={roadPath} fill="none" stroke="#e5cc8d" strokeWidth="22" />
+        <path d={roadPath} fill="none" stroke="#fff6d8" strokeWidth="2" strokeDasharray="16 10" />
         <polygon
-          points={`${toSvgX(-72)},${toSvgY(-70)} ${toSvgX(94)},${toSvgY(-66)} ${toSvgX(112)},${toSvgY(52)} ${toSvgX(-80)},${toSvgY(66)}`}
-          fill="#ffc92818"
-          stroke="#cf9f00"
+          points={polygonPoints(WORK_POLYGON_XZ)}
+          fill="#ffc92816"
+          stroke="#d59f00"
           strokeWidth="3"
           strokeDasharray="9 5"
         />
         <polygon
-          points={`${toSvgX(70)},${toSvgY(-42)} ${toSvgX(104)},${toSvgY(-40)} ${toSvgX(104)},${toSvgY(-8)} ${toSvgX(72)},${toSvgY(-10)}`}
+          points={polygonPoints(NO_GO_POLYGON_XZ)}
           fill="#d6454530"
           stroke="#d64545"
           strokeWidth="3"
         />
         <text
-          x={toSvgX(86)}
-          y={toSvgY(-23)}
+          x={toSvgX(92)}
+          y={toSvgY(-20)}
           textAnchor="middle"
           fill="#a32929"
           fontSize="12"
@@ -194,7 +230,7 @@ export function PlanView({
             </dd>
           </dl>
         ) : (
-          <div className="mt-1 text-slate-500">UTM 48S / MSL</div>
+          <div className="mt-1 text-slate-500">UTM 48S / MSL · CONTOUR 5 m</div>
         )}
       </div>
       <div className="absolute bottom-3 right-3 border border-slate-500 bg-white/95 px-3 py-2 text-xs font-bold text-slate-700">

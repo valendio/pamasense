@@ -23,11 +23,12 @@ npx playwright install chromium
 ## Demo workflow
 
 1. Open **Guidance**. Telemetry starts automatically at IMU 20 Hz and GNSS 10 Hz.
-2. Expand **Demo Telemetry** to pause, change speed, set manual angles, select grade presets, or inject RTK/IMU/network/CAN faults.
-3. Switch between **Plan**, **3D**, and **Section** at the bottom.
-4. Open **Design** to import a JSON TIN or CSV elevation grid. Valid designs are stored in IndexedDB.
-5. Open **Topography** to inspect updates and export sampled operational logs to CSV or JSON.
-6. Open **Settings** to calibrate geometry/tolerances and configure the telemetry source.
+2. Drive the demo excavator with **W/S** for forward/reverse travel and **A/D** for left/right track steering. The on-screen key pad also supports touch and pointer input.
+3. Expand **Demo Telemetry** to pause, change speed, set manual angles, select grade presets, or inject RTK/IMU/network/CAN faults.
+4. Switch between **Plan**, **3D**, and **Section** at the bottom.
+5. Open **Design** to import a JSON TIN or CSV elevation grid. Valid designs are stored in IndexedDB.
+6. Open **Topography** to inspect updates and export sampled operational logs to CSV or JSON.
+7. Open **Settings** to calibrate geometry/tolerances and configure the telemetry source.
 
 All visible operational controls are connected. The service worker caches production assets after first load. IndexedDB retains designs, one-hertz logs, terrain synchronization items, and alarm history; calibration/display/connectivity preferences use local storage.
 
@@ -44,7 +45,8 @@ Calibration steps and transform conventions are in [CALIBRATION.md](./CALIBRATIO
 
 ## Main capabilities
 
-- Three.js mine scene with separate design/actual surfaces and vertex deviation heatmap
+- Three.js mountain mine with six production benches, four surrounding ridges, a graded haul road, real 5 m plan contours, separate design/actual surfaces, and a vertex deviation heatmap
+- Keyboard and touchscreen tracked-machine driving with deterministic WASD kinematics
 - Primitive, hierarchical excavator with boom, arm, bucket, two GNSS antennas, and bucket tooth
 - Matrix-chain forward kinematics using configurable geometry
 - Barycentric TIN elevation interpolation (not nearest-point lookup)

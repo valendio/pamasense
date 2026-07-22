@@ -10,7 +10,7 @@ import { useUiStore } from '../stores/uiStore';
 import { CameraController } from './CameraController';
 import { ExcavatorModel } from './ExcavatorModel';
 import { MineContext } from './MineContext';
-import { ActualSurface, DesignSurface } from './TerrainMesh';
+import { ActualSurface, DesignSurface, TerrainContourLines } from './TerrainMesh';
 import { WorkBoundary } from './WorkBoundary';
 
 function SceneContent({
@@ -70,6 +70,7 @@ function SceneContent({
           wireframe={designWireframe || showActual}
         />
       )}
+      {showDesign && design && <TerrainContourLines design={design} />}
       <Grid
         position={[0, 119.82, 0]}
         args={[600, 500]}
@@ -83,7 +84,7 @@ function SceneContent({
         fadeStrength={1}
       />
       {showBoundaries && <WorkBoundary />}
-      <MineContext lowPerformance={settings.display.lowPerformanceMode} />
+      <MineContext lowPerformance={settings.display.lowPerformanceMode} design={design} />
       <ExcavatorModel
         telemetry={telemetry}
         geometry={settings.machine}

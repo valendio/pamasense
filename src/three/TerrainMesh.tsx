@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { BufferAttribute, BufferGeometry, Color, DoubleSide } from 'three';
 import type { ActualTerrain, TerrainDesign } from '../features/mine-design/designTypes';
 import { deviationColor } from '../features/guidance/deviation';
+import { createTerrainContours } from '../features/mine-design/contours';
 
 function createGeometry(
   vertices: TerrainDesign['vertices'],
@@ -89,5 +90,33 @@ export function ActualSurface({
         side={DoubleSide}
       />
     </mesh>
+  );
+}
+
+export function TerrainContourLines({ design }: { design: TerrainDesign }) {
+  const geometry = useMemo(() => {
+    const contours = createTerrainContours(design, 10);
+    const positions = new Float32Array(
+      contours.flatMap((contour) =>
+        contour.segments.flatMap(([start, end]) => [
+          start[0],
+          contour.elevation + 0.16,
+          start[1],
+          end[0],
+          contour.elevation + 0.16,
+          end[1],
+        ]),
+      ),
+    );
+    const contourGeometry = new BufferGeometry();
+    contourGeometry.setAttribute('position', new BufferAttribute(positions, 3));
+    contourGeometry.computeBoundingSphere();
+    return contourGeometry;
+  }, [design]);
+
+  return (
+    <lineSegments geometry={geometry} frustumCulled>
+      <lineBasicMaterial color="#24364b" transparent opacity={0.48} depthWrite={false} />
+    </lineSegments>
   );
 }

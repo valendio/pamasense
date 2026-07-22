@@ -1,27 +1,94 @@
-import type { ActualTerrain, TerrainDesign, Triangle } from './designTypes';
 import { SITE_ORIGIN } from '../../config/site';
+import type { ActualTerrain, TerrainDesign, Triangle } from './designTypes';
 
-const COLS = 31;
-const ROWS = 26;
+const COLS = 61;
+const ROWS = 51;
 const WIDTH = 600;
 const DEPTH = 500;
+const PIT_STRIKE_RAD = (28 * Math.PI) / 180;
 
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+const smoothstep = (edge0: number, edge1: number, value: number) => {
+  const t = clamp01((value - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
+};
+
+function gaussianPeak(
+  x: number,
+  z: number,
+  centerX: number,
+  centerZ: number,
+  radiusX: number,
+  radiusZ: number,
+  height: number,
+) {
+  const dx = (x - centerX) / radiusX;
+  const dz = (z - centerZ) / radiusZ;
+  return height * Math.exp(-(dx * dx + dz * dz));
+}
+
+function pitCoordinates(x: number, z: number) {
+  const cos = Math.cos(PIT_STRIKE_RAD);
+  const sin = Math.sin(PIT_STRIKE_RAD);
+  const alongStrike = x * cos + z * sin;
+  const crossStrike = -x * sin + z * cos;
+  const radius = Math.sqrt((alongStrike / 238) ** 2 + (crossStrike / 108) ** 2);
+  return { alongStrike, crossStrike, radius };
+}
+
+/** Main ramp centerline, kept public so context geometry uses the same design definition. */
+export function demoHaulRoadCenterZ(x: number) {
+  return x * 0.46 + Math.sin((x + 35) * 0.018) * 18 - 8;
+}
+
+/**
+ * Synthetic but meter-consistent mine surface inspired by long-strike Indonesian coal pits.
+ * The center is a graded coal floor; outside it, six benches blend into four mountain ridges.
+ */
 export function demoDesignElevation(x: number, z: number): number {
-  const radial = Math.sqrt((x * 0.92) ** 2 + (z * 1.08) ** 2);
-  const fromFloor = Math.max(0, radial - 92);
-  const ring = Math.floor(fromFloor / 46);
-  const withinRing = fromFloor % 46;
-  const wallRise = Math.min(1, Math.max(0, (withinRing - 27) / 14)) * 6.5;
-  const benchRise = ring * 6.5 + wallRise;
-  const floorGrade = x * 0.004 - z * 0.002;
-  const haulRoadCut = z > 70 && z < 105 && x > -250 + (z - 70) * 1.4 ? -2.2 : 0;
-  return 120.2 + benchRise + floorGrade + haulRoadCut;
+  const { alongStrike, crossStrike, radius } = pitCoordinates(x, z);
+  const floorElevation = 120.2 + x * 0.0035 - z * 0.0025;
+
+  const floorRadius = 0.34;
+  const benchWidth = 0.145;
+  const benchHeight = 7.4;
+  const outsideFloor = Math.max(0, radius - floorRadius);
+  const rawBenchIndex = Math.floor(outsideFloor / benchWidth);
+  const benchIndex = Math.min(6, rawBenchIndex);
+  const withinBench = (outsideFloor % benchWidth) / benchWidth;
+  const wallRamp = rawBenchIndex < 6 ? smoothstep(0.56, 0.93, withinBench) * benchHeight : 0;
+  const terracedPit = floorElevation + benchIndex * benchHeight + wallRamp;
+
+  // Parallel strike ridges reproduce the dense, elongated contour character of the reference.
+  const ridgeBand =
+    (8 + Math.sin(alongStrike * 0.017) * 2.4) *
+    (0.5 + 0.5 * Math.cos(crossStrike * 0.052 + Math.sin(alongStrike * 0.008) * 0.9));
+  const mountainMass =
+    gaussianPeak(x, z, -250, 192, 128, 105, 34) +
+    gaussianPeak(x, z, 238, -188, 138, 112, 39) +
+    gaussianPeak(x, z, 250, 182, 118, 92, 25) +
+    gaussianPeak(x, z, -225, -202, 120, 90, 23) +
+    ridgeBand;
+  const mountainBlend = smoothstep(0.98, 1.72, radius);
+
+  const roadDistance = Math.abs(z - demoHaulRoadCenterZ(x));
+  const roadCut =
+    radius > 0.44 ? smoothstep(13, 3.5, roadDistance) * (2.8 + mountainBlend * 2.2) : 0;
+
+  // Subtle coal-seam relief remains visible in sections without compromising bench geometry.
+  const seam =
+    radius > 0.42 && radius < 1.12
+      ? -1.1 * Math.exp(-(((crossStrike + 34) / 18) ** 2)) * Math.sin(alongStrike * 0.035) ** 2
+      : 0;
+
+  return terracedPit + mountainMass * mountainBlend - roadCut + seam;
 }
 
 function actualDeviation(x: number, z: number): number {
-  const digging = -0.16 * Math.exp(-((x - 32) ** 2 + (z + 18) ** 2) / 2800);
-  const windrow = 0.13 * Math.exp(-((x + 62) ** 2 + (z - 12) ** 2) / 1900);
-  return digging + windrow + Math.sin(x * 0.045) * Math.cos(z * 0.038) * 0.035;
+  const digging = -0.22 * Math.exp(-((x - 32) ** 2 + (z + 18) ** 2) / 2200);
+  const windrow = 0.18 * Math.exp(-((x + 62) ** 2 + (z - 12) ** 2) / 1650);
+  const dozerPass = 0.09 * Math.exp(-((x - 18) ** 2 + (z - 48) ** 2) / 900);
+  return digging + windrow + dozerPass + Math.sin(x * 0.047) * Math.cos(z * 0.041) * 0.045;
 }
 
 export function createDemoTerrain(): { design: TerrainDesign; actual: ActualTerrain } {
@@ -52,9 +119,9 @@ export function createDemoTerrain(): { design: TerrainDesign; actual: ActualTerr
 
   return {
     design: {
-      id: 'pit-a-r03',
-      name: 'Pit A — RL120 Coal Floor',
-      version: '2026.07.22-R03',
+      id: 'mit-subishi-complex-r04',
+      name: 'Pit Mitsubishi — Mountain & Multi-Bench Design',
+      version: '2026.07.22-R04',
       coordinateSystem: 'WGS 84 / UTM zone 48S',
       verticalDatum: 'MSL',
       originEast: SITE_ORIGIN.east,

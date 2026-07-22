@@ -10,6 +10,11 @@ import type { ConnectionStatus } from '../types/common';
 import type { TelemetryProvider } from '../features/telemetry/TelemetryProvider';
 import { WebSocketTelemetryProvider } from '../features/telemetry/WebSocketTelemetryProvider';
 import { useSettingsStore } from './settingsStore';
+import {
+  RELEASED_DRIVE_INPUT,
+  type DriveControlKey,
+  type DriveInput,
+} from '../features/machine/driveKinematics';
 
 const mockProvider = new MockTelemetryProvider();
 let activeProvider: TelemetryProvider = mockProvider;
@@ -21,6 +26,7 @@ type TelemetryState = {
   simulationRunning: boolean;
   speed: SimulationSpeed;
   faults: Record<SimulationFault, boolean>;
+  driveInput: DriveInput;
   initialize: () => Promise<() => void>;
   setSimulationRunning: (running: boolean) => void;
   setSpeed: (speed: SimulationSpeed) => void;
@@ -30,6 +36,8 @@ type TelemetryState = {
   setManualAngles: (
     angles: Pick<MachineTelemetry['imu'], 'boomAngleDeg' | 'armAngleDeg' | 'bucketAngleDeg'> | null,
   ) => void;
+  setDriveKey: (key: DriveControlKey, pressed: boolean) => void;
+  releaseDriveControls: () => void;
 };
 
 export const useTelemetryStore = create<TelemetryState>((set, get) => ({
@@ -38,6 +46,7 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
   simulationRunning: true,
   speed: 1,
   faults: mockProvider.getFaults(),
+  driveInput: mockProvider.getDriveInput(),
   initialize: async () => {
     const connectivity = useSettingsStore.getState().settings.connectivity;
     const requestedKey = `${connectivity.telemetryProvider}:${connectivity.webSocketUrl}`;
@@ -75,6 +84,7 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
       faults: mockProvider.getFaults(),
       speed: mockProvider.getSpeed(),
       simulationRunning: !mockProvider.isPaused(),
+      driveInput: mockProvider.getDriveInput(),
     });
   },
   toggleFault: (fault) => {
@@ -95,5 +105,15 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
           }
         : null,
     );
+  },
+  setDriveKey: (key, pressed) => {
+    const next = { ...get().driveInput, [key]: pressed };
+    mockProvider.setDriveInput(next);
+    set({ driveInput: next });
+  },
+  releaseDriveControls: () => {
+    const released = { ...RELEASED_DRIVE_INPUT };
+    mockProvider.setDriveInput(released);
+    set({ driveInput: released });
   },
 }));

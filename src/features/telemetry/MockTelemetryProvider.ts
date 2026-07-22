@@ -1,4 +1,11 @@
 import { SITE_ORIGIN } from '../../config/site';
+import { demoDesignElevation } from '../mine-design/demoTerrain';
+import {
+  advanceExcavatorDrive,
+  RELEASED_DRIVE_INPUT,
+  type DriveInput,
+  type DrivePose,
+} from '../machine/driveKinematics';
 import type { ConnectionStatus } from '../../types/common';
 import type { TelemetryProvider } from './TelemetryProvider';
 import type { MachineTelemetry } from './telemetrySchema';
@@ -35,6 +42,8 @@ export class MockTelemetryProvider implements TelemetryProvider {
     can: false,
   };
   private manualAngles: ManualAngles | null = null;
+  private driveInput: DriveInput = { ...RELEASED_DRIVE_INPUT };
+  private drivePose: DrivePose = { eastM: 18, northM: -24, headingDeg: 258.2 };
 
   async connect() {
     if (this.interval) return;
@@ -43,7 +52,16 @@ export class MockTelemetryProvider implements TelemetryProvider {
     this.status = 'ONLINE';
     this.emit();
     this.interval = setInterval(() => {
-      if (!this.paused) this.elapsedSec += 0.05 * this.speed;
+      const deltaSec = 0.05 * this.speed;
+      if (!this.paused) this.elapsedSec += deltaSec;
+      if (Object.values(this.driveInput).some(Boolean)) {
+        const nextPose = advanceExcavatorDrive(this.drivePose, this.driveInput, deltaSec);
+        this.drivePose = {
+          eastM: Math.min(286, Math.max(-286, nextPose.eastM)),
+          northM: Math.min(236, Math.max(-236, nextPose.northM)),
+          headingDeg: nextPose.headingDeg,
+        };
+      }
       this.emit();
     }, 50);
   }
@@ -83,6 +101,8 @@ export class MockTelemetryProvider implements TelemetryProvider {
   reset() {
     this.elapsedSec = 0;
     this.manualAngles = null;
+    this.driveInput = { ...RELEASED_DRIVE_INPUT };
+    this.drivePose = { eastM: 18, northM: -24, headingDeg: 258.2 };
     this.noise = seededNoise(21_072_026);
     this.faults = { rtk: false, imu: false, network: false, can: false };
     this.emit();
@@ -102,10 +122,19 @@ export class MockTelemetryProvider implements TelemetryProvider {
     this.emit();
   }
 
+  setDriveInput(input: DriveInput) {
+    this.driveInput = { ...input };
+    this.emit();
+  }
+
+  getDriveInput() {
+    return { ...this.driveInput };
+  }
+
   setDiggingScenario(scenario: DiggingScenario) {
     const scenarios: Record<DiggingScenario, ManualAngles> = {
       UNDERDIG: { boomAngleDeg: 38, armAngleDeg: -60, bucketAngleDeg: -40 },
-      ON_GRADE: { boomAngleDeg: 28.5, armAngleDeg: -78, bucketAngleDeg: -50 },
+      ON_GRADE: { boomAngleDeg: 28, armAngleDeg: -78, bucketAngleDeg: -50 },
       OVERDIG: { boomAngleDeg: 20, armAngleDeg: -95, bucketAngleDeg: -60 },
     };
     this.manualAngles = scenarios[scenario];
@@ -132,10 +161,13 @@ export class MockTelemetryProvider implements TelemetryProvider {
       timestamp: new Date().toISOString(),
       machineId: 'EX-021',
       gnss: {
-        east: SITE_ORIGIN.east + 18 + Math.sin(t * 0.025) * 5 + jitter * 0.008,
-        north: SITE_ORIGIN.north - 24 + Math.cos(t * 0.021) * 4 + jitter * 0.008,
-        elevation: 120.28 + Math.sin(t * 0.12) * 0.025,
-        headingDeg: (258.2 + Math.sin(t * 0.08) * 2 + 360) % 360,
+        east: SITE_ORIGIN.east + this.drivePose.eastM + jitter * 0.004,
+        north: SITE_ORIGIN.north + this.drivePose.northM + jitter * 0.004,
+        elevation:
+          demoDesignElevation(this.drivePose.eastM, this.drivePose.northM) +
+          0.08 +
+          Math.sin(t * 0.12) * 0.018,
+        headingDeg: this.drivePose.headingDeg,
         rollDeg: 0.8 + Math.sin(t * 0.9) * 0.18,
         pitchDeg: -1.1 + Math.cos(t * 0.7) * 0.22,
         solution: this.faults.rtk ? 'RTK_FLOAT' : 'RTK_FIX',

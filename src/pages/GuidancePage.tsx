@@ -5,6 +5,7 @@ import { PlanView } from '../components/guidance/PlanView';
 import { RightMetricPanel } from '../components/guidance/RightMetricPanel';
 import { SectionView } from '../components/guidance/SectionView';
 import { SimulationControls } from '../components/guidance/SimulationControls';
+import { ExcavatorDriveControls } from '../components/guidance/ExcavatorDriveControls';
 import { useGuidance } from '../hooks/useGuidance';
 import { useTelemetryStore } from '../stores/telemetryStore';
 import { useUiStore } from '../stores/uiStore';
@@ -44,10 +45,17 @@ export default function GuidancePage() {
         <output data-testid="telemetry-rate" className="sr-only">
           {telemetry.imu.updateRateHz} Hz
         </output>
+        <output data-testid="machine-position" className="sr-only">
+          {telemetry.gnss.east.toFixed(4)},{telemetry.gnss.north.toFixed(4)}
+        </output>
+        <output data-testid="machine-heading" className="sr-only">
+          {telemetry.gnss.headingDeg.toFixed(2)}
+        </output>
         {viewMode === '3D' && <MineScene telemetry={telemetry} guidance={guidance} />}
         {viewMode === 'PLAN' && <PlanView telemetry={telemetry} guidance={guidance} />}
         {viewMode === 'SECTION' && <SectionView telemetry={telemetry} guidance={guidance} />}
         {viewMode === '3D' && isMockTelemetry && <SimulationControls telemetry={telemetry} />}
+        {isMockTelemetry && <ExcavatorDriveControls />}
         {!guidance.valid && (
           <div
             className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 border-2 border-pama-red bg-white px-5 py-3 text-sm font-bold text-pama-red"
