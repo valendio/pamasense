@@ -52,6 +52,7 @@ Calibration steps and transform conventions are in [CALIBRATION.md](./CALIBRATIO
 - Barycentric TIN elevation interpolation (not nearest-point lookup)
 - Grade tolerance and hysteresis with mandatory sensor-quality gating
 - Functional topographic plan inspection and cross-section zoom/pan/direction controls
+- Live East–West topography profile with design and actual elevation lines, a dedicated deviation axis, and cut/fill delta summaries
 - JSON/CSV design validation with offline persistence
 - Worker-backed cut/fill calculation and runtime-cached production shell
 - Alarm center, critical banner, diagnostics, event sampling, and CSV/JSON export

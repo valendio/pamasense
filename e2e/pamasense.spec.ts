@@ -78,6 +78,10 @@ test.describe('PAMASense operational workflow', () => {
   test('10. CSV operational logs can be exported', async ({ page }) => {
     await page.waitForTimeout(1100);
     await page.getByRole('link', { name: 'Topography' }).click();
+    await expect(page.getByTestId('surface-elevation-profile')).toBeVisible();
+    await expect(page.getByText('Design elevation', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Actual elevation', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Δ Actual − Design', { exact: true })).toBeVisible();
     const downloadPromise = page.waitForEvent('download');
     await page.getByTestId('export-csv').click();
     const download = await downloadPromise;
