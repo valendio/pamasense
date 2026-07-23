@@ -22,6 +22,10 @@ BX992 / JD2110 / CAN gateway           Deterministic simulator
  vertical offset + hysteretic classification
       |
  3D / plan / cross-section / metrics / terrain queue
+      |
+ descending bucket + surface contact
+      |
+ cosine-falloff excavation of Actual only
 ```
 
 ## Boundaries
@@ -32,6 +36,9 @@ BX992 / JD2110 / CAN gateway           Deterministic simulator
 - **Rendering:** `three/` maps domain coordinates into Three.js. Terrain geometry is memoized and never rebuilt because an implement angle changed. The excavator hierarchy mirrors its physical joints.
 - **Persistent/offline:** `services/indexedDb.ts` stores design versions, sampled logs, pending synchronization items, and alarms. Settings use Zustand's local-storage persistence. The production service worker runtime-caches same-origin assets.
 - **Workers:** cut/fill is calculated in `workers/cutFill.worker.ts`; a main-thread fallback preserves functionality when Worker is unavailable. `terrain.worker.ts` is available for bulk heatmap processing as surfaces grow.
+- **Topography updates:** `features/mine-design/excavation.ts` applies a compact cosine falloff to
+  nearby Actual vertices only. The plan TIN remains immutable. `surfaceProfile.ts` samples a
+  bucket-local E–W transect with barycentric interpolation so the new notch is immediately visible.
 
 ## Guidance evaluation
 
@@ -54,7 +61,8 @@ BX992 / JD2110 / CAN gateway           Deterministic simulator
 
 ## Performance strategy
 
-- Actual and design surfaces contain fixed `BufferGeometry`; telemetry never regenerates them.
+- Telemetry motion never regenerates terrain geometry. Actual terrain changes only on a rate-limited
+  digging event, while the immutable plan geometry remains stable.
 - UI charts and logs run at 1 Hz while the implement model receives 20 Hz samples.
 - Cut/fill runs off the main thread.
 - Non-guidance pages are route-lazy-loaded.

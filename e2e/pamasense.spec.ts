@@ -79,9 +79,12 @@ test.describe('PAMASense operational workflow', () => {
     await page.waitForTimeout(1100);
     await page.getByRole('link', { name: 'Topography' }).click();
     await expect(page.getByTestId('surface-elevation-profile')).toBeVisible();
-    await expect(page.getByText('Design elevation', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Plan elevation', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Actual elevation', { exact: true }).first()).toBeVisible();
-    await expect(page.getByText('Δ Actual − Design', { exact: true })).toBeVisible();
+    await expect(page.getByText('Plan Design (Yellow)', { exact: true })).toBeVisible();
+    await expect(page.getByText('Actual Terrain (Blue)', { exact: true })).toBeVisible();
+    await expect(page.getByText('Difference / Deviation', { exact: true })).toBeVisible();
+    await expect(page.getByText('Bucket Position', { exact: true })).toBeVisible();
     const downloadPromise = page.waitForEvent('download');
     await page.getByTestId('export-csv').click();
     const download = await downloadPromise;
@@ -109,5 +112,17 @@ test.describe('PAMASense operational workflow', () => {
     await expect
       .poll(async () => Number(await machineHeading.textContent()))
       .toBeGreaterThan(beforeHeading);
+  });
+
+  test('12. a digging pass lowers only the actual surface near the bucket', async ({ page }) => {
+    await page.getByRole('button', { name: 'DEMO TELEMETRY' }).click();
+    await page.getByRole('button', { name: 'UNDERDIG', exact: true }).click();
+    await page.waitForTimeout(100);
+    await page.getByRole('button', { name: 'OVERDIG', exact: true }).click();
+    await page.waitForTimeout(500);
+    await page.getByRole('link', { name: 'Topography' }).click();
+    await expect(page.getByTestId('last-excavation')).toContainText('ACTUAL UPDATED');
+    await expect(page.getByTestId('affected-points')).not.toHaveText('0');
+    await expect(page.getByTestId('topography-surface-status')).toBeVisible();
   });
 });

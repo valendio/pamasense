@@ -15,9 +15,11 @@ function OperationalServices() {
   const guidance = useGuidance();
   const lastLogMs = useRef(0);
   const lastTerrainUpdateMs = useRef(0);
+  const previousBucketSample = useRef<{ elevationM: number; timestampMs: number } | null>(null);
   const lastSynchronizationMs = useRef(0);
   const activeFaults = useRef(new Set<string>());
-  const simulateTerrainUpdate = useDesignStore((state) => state.simulateTerrainUpdate);
+  const excavateActualTerrain = useDesignStore((state) => state.excavateActualTerrain);
+  const design = useDesignStore((state) => state.design);
   const hydrateDesign = useDesignStore((state) => state.hydrate);
   const pendingPoints = useDesignStore((state) => state.pendingPoints);
   const retrySynchronization = useDesignStore((state) => state.retrySync);
@@ -46,18 +48,29 @@ function OperationalServices() {
       appendLog(createOperationalLog(telemetry, guidance));
       lastLogMs.current = timestamp;
     }
-    if (
+    const previousBucket = previousBucketSample.current;
+    const downwardMovementM = previousBucket
+      ? previousBucket.elevationM - guidance.bucketTip[1]
+      : 0;
+    const sampleIntervalMs = previousBucket ? timestamp - previousBucket.timestampMs : 0;
+    const bucketIsDigging =
       guidance.valid &&
-      (guidance.verticalOffset ?? 1) < 0.12 &&
-      timestamp - lastTerrainUpdateMs.current >= 1000
-    ) {
-      simulateTerrainUpdate(
-        guidance.bucketTip[0] - SITE_ORIGIN.east,
-        guidance.bucketTip[2] - SITE_ORIGIN.north,
+      telemetry.machine.engineRunning &&
+      telemetry.machine.hydraulicPressureBar > 180 &&
+      sampleIntervalMs > 0 &&
+      downwardMovementM > 0.002;
+    if (bucketIsDigging && timestamp - lastTerrainUpdateMs.current >= 350) {
+      const event = excavateActualTerrain(
+        guidance.bucketTip[0] - (design?.originEast ?? SITE_ORIGIN.east),
+        guidance.bucketTip[2] - (design?.originNorth ?? SITE_ORIGIN.north),
         guidance.bucketTip[1],
       );
-      lastTerrainUpdateMs.current = timestamp;
+      if (event) lastTerrainUpdateMs.current = timestamp;
     }
+    previousBucketSample.current = {
+      elevationM: guidance.bucketTip[1],
+      timestampMs: timestamp,
+    };
     if (
       telemetry.network.online &&
       pendingPoints > 0 &&
@@ -112,10 +125,11 @@ function OperationalServices() {
     }
   }, [
     appendLog,
+    design,
     guidance,
     pendingPoints,
     retrySynchronization,
-    simulateTerrainUpdate,
+    excavateActualTerrain,
     telemetry,
     triggerAlarm,
   ]);

@@ -27,7 +27,9 @@ npx playwright install chromium
 3. Expand **Demo Telemetry** to pause, change speed, set manual angles, select grade presets, or inject RTK/IMU/network/CAN faults.
 4. Switch between **Plan**, **3D**, and **Section** at the bottom.
 5. Open **Design** to import a JSON TIN or CSV elevation grid. Valid designs are stored in IndexedDB.
-6. Open **Topography** to inspect updates and export sampled operational logs to CSV or JSON.
+6. Open **Topography** to inspect the bucket-local Plan Design (yellow) versus Actual Terrain
+   (blue) section and export sampled operational logs to CSV or JSON. A descending bucket that
+   intersects the surveyed surface applies a smooth local excavation falloff to Actual only.
 7. Open **Settings** to calibrate geometry/tolerances and configure the telemetry source.
 
 All visible operational controls are connected. The service worker caches production assets after first load. IndexedDB retains designs, one-hertz logs, terrain synchronization items, and alarm history; calibration/display/connectivity preferences use local storage.
@@ -52,7 +54,11 @@ Calibration steps and transform conventions are in [CALIBRATION.md](./CALIBRATIO
 - Barycentric TIN elevation interpolation (not nearest-point lookup)
 - Grade tolerance and hysteresis with mandatory sensor-quality gating
 - Functional topographic plan inspection and cross-section zoom/pan/direction controls
-- Live East–West topography profile with design and actual elevation lines, a dedicated deviation axis, and cut/fill delta summaries
+- Live bucket-local East–West topography profile with a yellow immutable plan, blue evolving actual
+  surface, exact between-surface deviation shading, bucket marker, and underdig/on-grade/overdig
+  readout
+- Smooth bucket excavation kernel that updates only nearby actual-terrain vertices and retains
+  per-point update timestamps for synchronization
 - JSON/CSV design validation with offline persistence
 - Worker-backed cut/fill calculation and runtime-cached production shell
 - Alarm center, critical banner, diagnostics, event sampling, and CSV/JSON export
@@ -70,7 +76,7 @@ World coordinates are meters: `X = East`, `Y = elevation`, `Z = North`. Headings
 | `npm run typecheck` | Strict TypeScript validation                     |
 | `npm run lint`      | ESLint validation                                |
 | `npm run test`      | Vitest unit suite                                |
-| `npm run test:e2e`  | Ten Playwright operational workflows             |
+| `npm run test:e2e`  | Twelve Playwright operational workflows          |
 | `npm run build`     | TypeScript check and optimized production bundle |
 | `npm run format`    | Prettier formatting                              |
 

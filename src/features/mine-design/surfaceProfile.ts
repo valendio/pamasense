@@ -2,7 +2,6 @@ import { getDesignElevation } from './elevationQuery';
 import type { ActualTerrain, TerrainDesign } from './designTypes';
 
 export type SurfaceProfilePoint = {
-  sourceIndex: number;
   stationM: number;
   eastM: number;
   northM: number;
@@ -21,85 +20,62 @@ export type SurfaceProfileSummary = {
   maximumDeviationM: number;
 };
 
-function downsampleIndices(indices: number[], maximumPoints: number) {
-  if (indices.length <= maximumPoints) return indices;
-  return Array.from({ length: maximumPoints }, (_, sampleIndex) => {
-    const ratio = sampleIndex / (maximumPoints - 1);
-    return indices[Math.round(ratio * (indices.length - 1))];
-  });
-}
+export type SurfaceProfileOptions = {
+  targetNorthM?: number;
+  centerEastM?: number;
+  halfWidthM?: number;
+  sampleCount?: number;
+};
 
-/** Builds an East-West elevation transect at the design row nearest the requested Northing. */
+/**
+ * Samples a continuous East-West transect with barycentric interpolation.
+ * A local window is used by Topography so a bucket-sized excavation remains
+ * legible even when the full design spans hundreds of metres.
+ */
 export function buildSurfaceElevationProfile(
   design: TerrainDesign | null,
   actual: ActualTerrain,
-  targetNorthM = 0,
-  maximumPoints = 180,
+  options: SurfaceProfileOptions = {},
 ): SurfaceProfilePoint[] {
   if (!design || design.vertices.length < 2 || actual.vertices.length < 2) return [];
-
-  let nearestNorthM = design.vertices[0][2];
-  let nearestDistanceM = Math.abs(nearestNorthM - targetNorthM);
-  for (const vertex of design.vertices) {
-    const distanceM = Math.abs(vertex[2] - targetNorthM);
-    if (distanceM < nearestDistanceM) {
-      nearestNorthM = vertex[2];
-      nearestDistanceM = distanceM;
-    }
-  }
-
-  let rowIndices = design.vertices
-    .map((vertex, index) => ({ index, distanceM: Math.abs(vertex[2] - nearestNorthM) }))
-    .filter(({ distanceM }) => distanceM < 0.001)
-    .map(({ index }) => index);
-
-  // Irregular TINs may not have a repeated Northing. Use the closest points as a stable fallback.
-  if (rowIndices.length < 8) {
-    rowIndices = design.vertices
-      .map((vertex, index) => ({ index, distanceM: Math.abs(vertex[2] - targetNorthM) }))
-      .sort((a, b) => a.distanceM - b.distanceM)
-      .slice(0, Math.min(maximumPoints, design.vertices.length))
-      .map(({ index }) => index);
-  }
-
-  rowIndices.sort((a, b) => design.vertices[a][0] - design.vertices[b][0]);
-  rowIndices = downsampleIndices(rowIndices, maximumPoints);
 
   const actualAsDesign: TerrainDesign = {
     ...design,
     vertices: actual.vertices,
     triangles: actual.triangles,
   };
-  let stationM = 0;
-  let previous: TerrainDesign['vertices'][number] | null = null;
+  const eastCoordinates = design.vertices.map((vertex) => vertex[0]);
+  const northCoordinates = design.vertices.map((vertex) => vertex[2]);
+  const minimumEastM = Math.min(...eastCoordinates);
+  const maximumEastM = Math.max(...eastCoordinates);
+  const minimumNorthM = Math.min(...northCoordinates);
+  const maximumNorthM = Math.max(...northCoordinates);
+  const targetNorthM = Math.min(maximumNorthM, Math.max(minimumNorthM, options.targetNorthM ?? 0));
+  const centerEastM = Math.min(
+    maximumEastM,
+    Math.max(minimumEastM, options.centerEastM ?? (minimumEastM + maximumEastM) / 2),
+  );
+  const defaultHalfWidthM = (maximumEastM - minimumEastM) / 2;
+  const halfWidthM = Math.max(1, options.halfWidthM ?? defaultHalfWidthM);
+  const startEastM = Math.max(minimumEastM, centerEastM - halfWidthM);
+  const endEastM = Math.min(maximumEastM, centerEastM + halfWidthM);
+  const sampleCount = Math.min(241, Math.max(2, Math.round(options.sampleCount ?? 121)));
   const profile: SurfaceProfilePoint[] = [];
 
-  for (const sourceIndex of rowIndices) {
-    const designVertex = design.vertices[sourceIndex];
-    if (!designVertex) continue;
-    if (previous) {
-      stationM += Math.hypot(designVertex[0] - previous[0], designVertex[2] - previous[2]);
-    }
-    previous = designVertex;
-
-    const indexedActual = actual.vertices[sourceIndex];
-    const indexedActualMatches =
-      indexedActual &&
-      Math.abs(indexedActual[0] - designVertex[0]) < 0.001 &&
-      Math.abs(indexedActual[2] - designVertex[2]) < 0.001;
-    const actualElevationM = indexedActualMatches
-      ? indexedActual[1]
-      : getDesignElevation(actualAsDesign, designVertex[0], designVertex[2]);
-    if (actualElevationM === null) continue;
+  for (let index = 0; index < sampleCount; index += 1) {
+    const ratio = index / (sampleCount - 1);
+    const eastM = startEastM + ratio * (endEastM - startEastM);
+    const designElevationM = getDesignElevation(design, eastM, targetNorthM);
+    const actualElevationM = getDesignElevation(actualAsDesign, eastM, targetNorthM);
+    if (designElevationM === null || actualElevationM === null) continue;
 
     profile.push({
-      sourceIndex,
-      stationM,
-      eastM: designVertex[0],
-      northM: designVertex[2],
-      designElevationM: designVertex[1],
+      stationM: eastM - startEastM,
+      eastM,
+      northM: targetNorthM,
+      designElevationM,
       actualElevationM,
-      deviationM: actualElevationM - designVertex[1],
+      deviationM: actualElevationM - designElevationM,
     });
   }
 

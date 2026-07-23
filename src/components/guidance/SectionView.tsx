@@ -1,10 +1,13 @@
 import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { SITE_ORIGIN } from '../../config/site';
+import { classifyDiggingStatus } from '../../features/guidance/classification';
+import { deviationColor } from '../../features/guidance/deviation';
 import type { GuidanceResult } from '../../features/guidance/guidanceTypes';
 import { getDesignElevation } from '../../features/mine-design/elevationQuery';
 import type { MachineTelemetry } from '../../features/telemetry/telemetrySchema';
 import { useDesignStore } from '../../stores/designStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 
 type SectionDirection = 'HEADING' | 'BOOM' | 'EAST_WEST' | 'NORTH_SOUTH';
 const WIDTH = 900;
@@ -20,6 +23,7 @@ export function SectionView({
 }) {
   const design = useDesignStore((state) => state.design);
   const actual = useDesignStore((state) => state.actual);
+  const gradeToleranceM = useSettingsStore((state) => state.settings.guidance.gradeToleranceM);
   const [direction, setDirection] = useState<SectionDirection>('BOOM');
   const [sectionWidth, setSectionWidth] = useState(120);
   const [pan, setPan] = useState(0);
@@ -27,26 +31,40 @@ export function SectionView({
     () => (design ? { ...design, vertices: actual.vertices, triangles: actual.triangles } : null),
     [actual.triangles, actual.vertices, design],
   );
-  const machineX = telemetry.gnss.east - SITE_ORIGIN.east;
-  const machineZ = telemetry.gnss.north - SITE_ORIGIN.north;
-  const bucketX = guidance.bucketTip[0] - SITE_ORIGIN.east;
-  const bucketZ = guidance.bucketTip[2] - SITE_ORIGIN.north;
-  const angleDeg =
+  const originEastM = design?.originEast ?? SITE_ORIGIN.east;
+  const originNorthM = design?.originNorth ?? SITE_ORIGIN.north;
+  const machineX = telemetry.gnss.east - originEastM;
+  const machineZ = telemetry.gnss.north - originNorthM;
+  const bucketX = guidance.bucketTip[0] - originEastM;
+  const bucketZ = guidance.bucketTip[2] - originNorthM;
+  const actualElevationAtBucket = getDesignElevation(actualAsDesign, bucketX, bucketZ);
+  const surfaceOffsetM =
+    guidance.designElevation === null || actualElevationAtBucket === null
+      ? null
+      : actualElevationAtBucket - guidance.designElevation;
+  const surfaceStatus =
+    surfaceOffsetM === null
+      ? 'UNAVAILABLE'
+      : classifyDiggingStatus(surfaceOffsetM, gradeToleranceM);
+  const rawAngleDeg =
     direction === 'EAST_WEST' ? 90 : direction === 'NORTH_SOUTH' ? 0 : telemetry.gnss.headingDeg;
+  const angleDeg = Math.round(rawAngleDeg * 2) / 2;
   const angle = (angleDeg * Math.PI) / 180;
+  const sectionOriginX = Math.round(machineX * 2) / 2;
+  const sectionOriginZ = Math.round(machineZ * 2) / 2;
 
   const data = useMemo(() => {
     return Array.from({ length: 81 }, (_, index) => {
       const distance = pan - sectionWidth / 2 + (index / 80) * sectionWidth;
-      const x = machineX + Math.sin(angle) * distance;
-      const z = machineZ + Math.cos(angle) * distance;
+      const x = sectionOriginX + Math.sin(angle) * distance;
+      const z = sectionOriginZ + Math.cos(angle) * distance;
       return {
         distance,
         design: getDesignElevation(design, x, z),
         actual: getDesignElevation(actualAsDesign, x, z),
       };
     });
-  }, [actualAsDesign, angle, design, machineX, machineZ, pan, sectionWidth]);
+  }, [actualAsDesign, angle, design, pan, sectionOriginX, sectionOriginZ, sectionWidth]);
 
   const elevations = data
     .flatMap((point) => [point.design, point.actual])
@@ -197,14 +215,38 @@ export function SectionView({
             opacity="0.18"
           />
         )}
+        {data.slice(0, -1).map((point, index) => {
+          const next = data[index + 1];
+          if (
+            point.design === null ||
+            point.actual === null ||
+            next.design === null ||
+            next.actual === null
+          )
+            return null;
+          const meanDeviationM = (point.actual - point.design + next.actual - next.design) / 2;
+          return (
+            <polygon
+              key={`${point.distance}-${next.distance}`}
+              points={[
+                `${xScale(point.distance)},${yScale(point.actual)}`,
+                `${xScale(next.distance)},${yScale(next.actual)}`,
+                `${xScale(next.distance)},${yScale(next.design)}`,
+                `${xScale(point.distance)},${yScale(point.design)}`,
+              ].join(' ')}
+              fill={deviationColor(meanDeviationM)}
+              opacity="0.2"
+            />
+          );
+        })}
         <path
           d={linePath('design')}
           fill="none"
-          stroke="#294483"
+          stroke="#f2b318"
           strokeWidth="3"
           strokeDasharray="8 4"
         />
-        <path d={linePath('actual')} fill="none" stroke="#745f39" strokeWidth="3" />
+        <path d={linePath('actual')} fill="none" stroke="#2d85c7" strokeWidth="3" />
         <line
           x1={machineScreenX}
           y1={yScale(telemetry.gnss.elevation)}
@@ -281,13 +323,25 @@ export function SectionView({
           HORIZONTAL DISTANCE FROM MACHINE (m)
         </text>
       </svg>
-      <div className="absolute bottom-16 right-4 border border-slate-400 bg-white/95 px-3 py-2 text-xs">
-        <div className="flex gap-4">
-          <span className="font-bold text-pama-blue">— — DESIGN</span>
-          <span className="font-bold text-[#745f39]">—— ACTUAL</span>
+      <div className="absolute right-4 top-14 border border-slate-400 bg-white/95 px-3 py-2 text-xs">
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          <span className="font-bold text-pama-gold">— — PLAN DESIGN (YELLOW)</span>
+          <span className="font-bold text-pama-info">—— ACTUAL TERRAIN (BLUE)</span>
+          <span className="font-bold text-slate-600">▰ DIFFERENCE / DEVIATION</span>
+          <span className="font-bold text-pama-charcoal">● BUCKET POSITION</span>
         </div>
         <div className="mt-1">
-          Bucket distance <strong>{bucketDistance.toFixed(2)} m</strong> · deviation{' '}
+          Plan <strong>{guidance.designElevation?.toFixed(2) ?? '—'} m</strong> · actual{' '}
+          <strong>{actualElevationAtBucket?.toFixed(2) ?? '—'} m</strong> · surface Δ{' '}
+          <strong
+            style={{ color: surfaceOffsetM === null ? '#64748b' : deviationColor(surfaceOffsetM) }}
+          >
+            {surfaceOffsetM?.toFixed(2) ?? '—'} m
+          </strong>{' '}
+          · <strong>{surfaceStatus.replace('_', ' ')}</strong>
+        </div>
+        <div className="mt-1 text-slate-600">
+          Bucket distance <strong>{bucketDistance.toFixed(2)} m</strong> · bucket-to-plan{' '}
           <strong>{guidance.verticalOffset?.toFixed(2) ?? '—'} m</strong>
         </div>
       </div>

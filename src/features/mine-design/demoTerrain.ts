@@ -47,7 +47,13 @@ export function demoHaulRoadCenterZ(x: number) {
  */
 export function demoDesignElevation(x: number, z: number): number {
   const { alongStrike, crossStrike, radius } = pitCoordinates(x, z);
-  const floorElevation = 120.2 + x * 0.0035 - z * 0.0025;
+  const naturalRelief =
+    Math.sin(alongStrike * 0.038 + Math.sin(crossStrike * 0.016) * 0.9) * 0.21 +
+    Math.sin(alongStrike * 0.083 + crossStrike * 0.019) * 0.09 +
+    Math.sin(crossStrike * 0.061) * 0.06;
+  const workPadBlend = smoothstep(35, 75, Math.hypot(x - 18, z + 24));
+  const floorElevation =
+    120.2 + x * 0.0035 - z * 0.0025 + naturalRelief * (0.22 + workPadBlend * 0.78);
 
   const floorRadius = 0.34;
   const benchWidth = 0.145;
@@ -85,10 +91,10 @@ export function demoDesignElevation(x: number, z: number): number {
 }
 
 function actualDeviation(x: number, z: number): number {
-  const digging = -0.22 * Math.exp(-((x - 32) ** 2 + (z + 18) ** 2) / 2200);
-  const windrow = 0.18 * Math.exp(-((x + 62) ** 2 + (z - 12) ** 2) / 1650);
-  const dozerPass = 0.09 * Math.exp(-((x - 18) ** 2 + (z - 48) ** 2) / 900);
-  return digging + windrow + dozerPass + Math.sin(x * 0.047) * Math.cos(z * 0.041) * 0.045;
+  const digging = -0.14 * Math.exp(-((x - 58) ** 2 + (z + 46) ** 2) / 750);
+  const windrow = 0.13 * Math.exp(-((x + 62) ** 2 + (z - 12) ** 2) / 950);
+  const dozerPass = 0.08 * Math.exp(-((x - 18) ** 2 + (z - 48) ** 2) / 680);
+  return digging + windrow + dozerPass + Math.sin(x * 0.047) * Math.cos(z * 0.041) * 0.035;
 }
 
 export function createDemoTerrain(): { design: TerrainDesign; actual: ActualTerrain } {
