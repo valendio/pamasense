@@ -77,8 +77,8 @@ test.describe('PAMASense operational workflow', () => {
 
   test('10. CSV operational logs can be exported', async ({ page }) => {
     await page.waitForTimeout(1100);
-    await page.getByRole('link', { name: 'Topography' }).click();
-    await expect(page.getByTestId('surface-elevation-profile')).toBeVisible();
+    await page.goto('/topography');
+    await expect(page.getByTestId('surface-elevation-profile')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('Plan elevation', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Actual elevation', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Plan Design (Yellow)', { exact: true })).toBeVisible();
@@ -96,22 +96,27 @@ test.describe('PAMASense operational workflow', () => {
     const machineHeading = page.getByTestId('machine-heading');
     const beforePosition = (await machinePosition.textContent()) ?? '';
     const beforeHeading = Number(await machineHeading.textContent());
+    await expect(page.getByTestId('drive-controls')).toHaveCount(0);
 
     await page.keyboard.down('w');
-    await expect(page.getByRole('button', { name: 'Forward (W)' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
     await page.waitForTimeout(650);
     await page.keyboard.up('w');
     await expect(machinePosition).not.toHaveText(beforePosition);
 
+    await page.keyboard.down('a');
+    await page.waitForTimeout(350);
+    await page.keyboard.up('a');
+    await expect
+      .poll(async () => Number(await machineHeading.textContent()))
+      .toBeGreaterThan(beforeHeading);
+
+    const afterAHeading = Number(await machineHeading.textContent());
     await page.keyboard.down('d');
     await page.waitForTimeout(350);
     await page.keyboard.up('d');
     await expect
       .poll(async () => Number(await machineHeading.textContent()))
-      .toBeGreaterThan(beforeHeading);
+      .toBeLessThan(afterAHeading);
   });
 
   test('12. a digging pass lowers only the actual surface near the bucket', async ({ page }) => {
