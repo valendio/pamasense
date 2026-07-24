@@ -129,5 +129,8 @@ test.describe('PAMASense operational workflow', () => {
     await expect(page.getByTestId('last-excavation')).toContainText('ACTUAL UPDATED');
     await expect(page.getByTestId('affected-points')).not.toHaveText('0');
     await expect(page.getByTestId('topography-surface-status')).toBeVisible();
+    await expect(page.getByTestId('mining-activity-chart')).toBeVisible();
+    await expect(page.getByTestId('shoveling-unit-count')).toHaveText('1');
+    await expect(page.getByTestId('digging-pass-count')).not.toHaveText('0');
   });
 });

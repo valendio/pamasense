@@ -57,6 +57,8 @@ Calibration steps and transform conventions are in [CALIBRATION.md](./CALIBRATIO
 - Live bucket-local East–West topography profile with a yellow immutable plan, blue evolving actual
   surface, exact between-surface deviation shading, bucket marker, and underdig/on-grade/overdig
   readout
+- Rolling mining-activity chart calculated from real bucket excavation events, including unique
+  shoveling units, digging passes, Actual−Design deviation, affected points, and grade compliance
 - Smooth bucket excavation kernel that updates only nearby actual-terrain vertices and retains
   per-point update timestamps for synchronization
 - JSON/CSV design validation with offline persistence

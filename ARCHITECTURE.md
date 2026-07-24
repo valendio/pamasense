@@ -39,6 +39,9 @@ BX992 / JD2110 / CAN gateway           Deterministic simulator
 - **Topography updates:** `features/mine-design/excavation.ts` applies a compact cosine falloff to
   nearby Actual vertices only. The plan TIN remains immutable. `surfaceProfile.ts` samples a
   bucket-local E–W transect with barycentric interpolation so the new notch is immediately visible.
+- **Mining activity:** each accepted excavation records its machine ID and Actual−Design result.
+  `miningActivity.ts` aggregates those records into ten-second fleet buckets and rolling compliance
+  metrics; units are counted uniquely, so the same shovel is never double-counted within a bucket.
 
 ## Guidance evaluation
 

@@ -61,6 +61,7 @@ function OperationalServices() {
       downwardMovementM > 0.002;
     if (bucketIsDigging && timestamp - lastTerrainUpdateMs.current >= 350) {
       const event = excavateActualTerrain(
+        telemetry.machineId,
         guidance.bucketTip[0] - (design?.originEast ?? SITE_ORIGIN.east),
         guidance.bucketTip[2] - (design?.originNorth ?? SITE_ORIGIN.north),
         guidance.bucketTip[1],

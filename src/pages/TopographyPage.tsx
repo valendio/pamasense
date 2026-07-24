@@ -22,12 +22,14 @@ import {
   summarizeSurfaceProfile,
   type SurfaceProfilePoint,
 } from '../features/mine-design/surfaceProfile';
+import { calculateMiningActivity } from '../features/mine-design/miningActivity';
 import { useGuidance } from '../hooks/useGuidance';
 import { exportLogsCsv, exportLogsJson } from '../services/exportService';
 import { useDesignStore } from '../stores/designStore';
 import { useLogStore } from '../stores/logStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useTelemetryStore } from '../stores/telemetryStore';
+import { MiningActivityPanel } from '../components/guidance/MiningActivityPanel';
 
 const signedMeters = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(3)} m`;
 
@@ -124,6 +126,7 @@ export default function TopographyPage() {
   const pending = useDesignStore((state) => state.pendingPoints);
   const syncProgress = useDesignStore((state) => state.syncProgress);
   const lastExcavation = useDesignStore((state) => state.lastExcavation);
+  const excavationHistory = useDesignStore((state) => state.excavationHistory);
   const logs = useLogStore((state) => state.logs);
   const telemetry = useTelemetryStore((state) => state.telemetry);
   const gradeToleranceM = useSettingsStore((state) => state.settings.guidance.gradeToleranceM);
@@ -187,6 +190,15 @@ export default function TopographyPage() {
     const padding = Math.max(0.2, (maximum - minimum) * 0.18);
     return [minimum - padding, maximum + padding];
   }, [profileSummary]);
+  const telemetryTimestampMs = telemetry ? new Date(telemetry.timestamp).getTime() : Date.now();
+  const activityNowMs =
+    Math.ceil(
+      (Number.isFinite(telemetryTimestampMs) ? telemetryTimestampMs : Date.now()) / 10_000,
+    ) * 10_000;
+  const miningActivity = useMemo(
+    () => calculateMiningActivity(excavationHistory, gradeToleranceM, activityNowMs),
+    [activityNowMs, excavationHistory, gradeToleranceM],
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-100">
@@ -385,6 +397,7 @@ export default function TopographyPage() {
               )}
             </div>
           </section>
+          <MiningActivityPanel series={miningActivity.series} summary={miningActivity.summary} />
           <section className="panel">
             <div className="panel-heading">
               Recent operational log <span>1 Hz sample</span>
